@@ -18,6 +18,7 @@ type Student = {
 };
 
 export default function StudentsPage() {
+  const [mounted, setMounted] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -25,6 +26,10 @@ export default function StudentsPage() {
 
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   async function checkAuthAndLoad() {
     setLoading(true);
@@ -117,8 +122,18 @@ export default function StudentsPage() {
   }
 
   useEffect(() => {
-    checkAuthAndLoad();
-  }, [supabase]);
+    if (mounted) {
+      checkAuthAndLoad();
+    }
+  }, [mounted, supabase]);
+
+  if (!mounted) {
+    return (
+      <main className="min-h-screen bg-gray-50 p-10 text-center text-gray-500">
+        Loading portal...
+      </main>
+    );
+  }
 
   const filteredStudents = students.filter((student) => {
     const query = search.toLowerCase();
