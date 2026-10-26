@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../lib/supabase/client";
@@ -25,7 +25,6 @@ export default function StudentsPage() {
   const [error, setError] = useState("");
 
   const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     setMounted(true);
@@ -34,6 +33,7 @@ export default function StudentsPage() {
   async function checkAuthAndLoad() {
     setLoading(true);
     setError("");
+    const supabase = createClient();
 
     // 1. Check if staff is logged in
     const {
@@ -68,6 +68,7 @@ export default function StudentsPage() {
     );
     if (!confirmed) return;
 
+    const supabase = createClient();
     const { error } = await supabase
       .from("students")
       .delete()
@@ -125,7 +126,7 @@ export default function StudentsPage() {
     if (mounted) {
       checkAuthAndLoad();
     }
-  }, [mounted, supabase]);
+  }, [mounted]);
 
   if (!mounted) {
     return (
@@ -181,6 +182,7 @@ export default function StudentsPage() {
 
             <button
               onClick={async () => {
+                const supabase = createClient();
                 await supabase.auth.signOut();
                 router.push("/login");
               }}
