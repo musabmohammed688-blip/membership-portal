@@ -1,63 +1,78 @@
 "use client";
 
-import { useEffect, useState } from "react";
+export const dynamic = "force-dynamic";
+
+import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "../../../lib/supabase/client";
 
 type Halqa = {
-  id: number;
+  id: string;
   name: string;
 };
 
 export default function NewStudentPage() {
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
 
   const [halqas, setHalqas] = useState<Halqa[]>([]);
   const [fullName, setFullName] = useState("");
-  const [halkaId, setHalkaId] = useState<number | "">("");
+  const [halkaId, setHalkaId] = useState("");
   const [parentName, setParentName] = useState("");
   const [parentPhone, setParentPhone] = useState("");
   const [parentPhone2, setParentPhone2] = useState("");
-
   const [loading, setLoading] = useState(false);
-  const [loadingHalqas, setLoadingHalqas] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     async function loadHalqas() {
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("halqas")
         .select("*")
-        .order("id");
+        .order("name");
 
       if (error) {
-        setError(`Unable to load Halqas: ${error.message}`);
-      } else if (data && data.length > 0) {
-        setHalqas(data);
-        setHalkaId(data[0].id);
+        setError(error.message);
+      } else {
+        setHalqas(data || []);
+        if (data && data.length > 0) {
+          setHalkaId(data[0].id);
+        }
       }
-      setLoadingHalqas(false);
     }
-
     loadHalqas();
-  }, []);
+  }, [mounted]);
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    if (!halkaId) return;
-
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
     setLoading(true);
     setError("");
+
+    const supabase = createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/login");
+      return;
+    }
 
     const { error: insertError } = await supabase.from("students").insert([
       {
         full_name: fullName,
-        halka_id: Number(halkaId),
+        halka_id: halkaId || null,
         parent_name: parentName,
         parent_phone: parentPhone,
-        parent_phone_2: parentPhone2 || null,
+        parent_phone_2: parentPhone2 ? parentPhone2 : null,
       },
     ]);
 
@@ -68,7 +83,14 @@ export default function NewStudentPage() {
     }
 
     router.push("/students");
-    router.refresh();
+  }
+
+  if (!mounted) {
+    return (
+      <main className="min-h-screen bg-gray-50 p-10 text-center text-gray-500">
+        Loading registration form...
+      </main>
+    );
   }
 
   return (
@@ -79,140 +101,120 @@ export default function NewStudentPage() {
             href="/students"
             className="text-sm font-medium text-green-700 hover:underline"
           >
-            ← Back to Students
+            ← Back to Students Management
           </Link>
-          <h1 className="mt-4 text-3xl font-bold text-gray-900">
+          <p className="mt-3 text-sm font-semibold uppercase tracking-widest text-green-700">
+            حلقة الرحمانية لتحفيظ القرآن الكريم
+          </p>
+          <h1 className="mt-2 text-3xl font-bold text-gray-900">
             Register New Student
           </h1>
           <p className="mt-1 text-gray-600">
-            Add a new student to حلقة الرحمانية لتحفيظ القرآن الكريم records.
+            Add a new student record and assign them to a Halqa.
           </p>
         </header>
 
-        <section className="rounded-xl border bg-white p-6 shadow-sm md:p-8">
+        <div className="rounded-xl border bg-white p-6 shadow-sm md:p-8">
           {error && (
             <div className="mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-700">
-              <p className="font-semibold">Unable to process request.</p>
-              <p className="mt-1">{error}</p>
+              {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label
-                htmlFor="full_name"
-                className="mb-2 block text-sm font-medium text-gray-700"
-              >
-                Student Full Name <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-gray-700">
+                Student Full Name *
               </label>
               <input
-                id="full_name"
                 type="text"
                 required
-                placeholder="e.g. Abdullah Ahmed"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                placeholder="e.g. Muhammad Al-Amin"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="halka_id"
-                className="mb-2 block text-sm font-medium text-gray-700"
-              >
-                Assign Halqa <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-gray-700">
+                Halqa Assignment *
               </label>
               <select
-                id="halka_id"
                 required
-                disabled={loadingHalqas}
                 value={halkaId}
-                onChange={(e) => setHalkaId(Number(e.target.value))}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100 disabled:bg-gray-100"
+                onChange={(e) => setHalkaId(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100 bg-white"
               >
-                {loadingHalqas ? (
-                  <option>Loading Halqas...</option>
-                ) : (
-                  halqas.map((halqa) => (
-                    <option key={halqa.id} value={halqa.id}>
-                      {halqa.name}
-                    </option>
-                  ))
-                )}
+                {halqas.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.name}
+                  </option>
+                ))}
               </select>
             </div>
 
             <div>
-              <label
-                htmlFor="parent_name"
-                className="mb-2 block text-sm font-medium text-gray-700"
-              >
-                Parent's Name <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-gray-700">
+                Parent / Guardian Name *
               </label>
               <input
-                id="parent_name"
                 type="text"
                 required
-                placeholder="e.g. Ahmed Ali"
                 value={parentName}
                 onChange={(e) => setParentName(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                placeholder="e.g. Sheikh Ibrahim"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="parent_phone"
-                className="mb-2 block text-sm font-medium text-gray-700"
-              >
-                Parent's WhatsApp Number <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-gray-700">
+                Primary Parent WhatsApp Number *
               </label>
               <input
-                id="parent_phone"
-                type="tel"
+                type="text"
                 required
-                placeholder="e.g. +233097609"
                 value={parentPhone}
                 onChange={(e) => setParentPhone(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                placeholder="e.g. +2348012345678"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
               />
+              <p className="mt-1 text-xs text-gray-500">
+                Include country code for direct WhatsApp contact integration.
+              </p>
             </div>
 
             <div>
-              <label
-                htmlFor="parent_phone_2"
-                className="mb-2 block text-sm font-medium text-gray-700"
-              >
+              <label className="block text-sm font-medium text-gray-700">
                 Secondary WhatsApp Number (Optional)
               </label>
               <input
-                id="parent_phone_2"
-                type="tel"
-                placeholder="e.g. +233097610"
+                type="text"
                 value={parentPhone2}
                 onChange={(e) => setParentPhone2(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                placeholder="e.g. +2348098765432"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
               />
             </div>
 
             <div className="flex items-center justify-end gap-4 pt-4">
               <Link
                 href="/students"
-                className="rounded-lg border border-gray-300 px-5 py-2.5 font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
               >
                 Cancel
               </Link>
               <button
                 type="submit"
-                disabled={loading || loadingHalqas}
-                className="rounded-lg bg-green-700 px-6 py-2.5 font-medium text-white hover:bg-green-800 disabled:opacity-50"
+                disabled={loading}
+                className="rounded-lg bg-green-700 px-6 py-2.5 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
               >
-                {loading ? "Registering..." : "Register Student"}
+                {loading ? "Registering..." : "Save Student"}
               </button>
             </div>
           </form>
-        </section>
+        </div>
       </div>
     </main>
   );
