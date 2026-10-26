@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../lib/supabase/client";
@@ -24,7 +24,7 @@ export default function StudentsPage() {
   const [error, setError] = useState("");
 
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   async function checkAuthAndLoad() {
     setLoading(true);
@@ -118,7 +118,7 @@ export default function StudentsPage() {
 
   useEffect(() => {
     checkAuthAndLoad();
-  }, []);
+  }, [supabase]);
 
   const filteredStudents = students.filter((student) => {
     const query = search.toLowerCase();
